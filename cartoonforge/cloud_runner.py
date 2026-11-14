@@ -14,19 +14,17 @@ CONFIG_EXAMPLE = ROOT / "config.example.toml"
 CONFIG_FILE = ROOT / "config.toml"
 TASK_FILE = ROOT / ".cartoonforge-task.json"
 
-
-def required_env(name: str) -> str:
-    value = os.environ.get(name, "").strip()
-    if not value:
-        raise SystemExit(f"Missing GitHub Actions secret: {name}")
-    return value
+# OVHcloud lists this SDXL model as Free and documents anonymous API access.
+# Anonymous requests are rate-limited to two requests per minute per IP/model.
+OVH_IMAGE_BASE_URL = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+OVH_IMAGE_MODEL = "stable-diffusion-xl-base-v10"
 
 
 def scene_chunks(script: str, count: int) -> list[str]:
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", script) if p.strip()]
+    paragraphs = [p.strip() for p in re.split(r"\\n\\s*\\n", script) if p.strip()]
     units: list[str] = []
     for paragraph in paragraphs:
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?。！？])\s+", paragraph) if s.strip()]
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?。！？])\\s+", paragraph) if s.strip()]
         units.extend(sentences or [paragraph])
     if not units:
         raise SystemExit("The script is empty.")
@@ -45,9 +43,18 @@ def configure_image_provider() -> None:
     config = toml.load(CONFIG_EXAMPLE)
     app = config.setdefault("app", {})
     app["video_source"] = "openai_image"
-    app["openai_image_base_url"] = required_env("OPENAI_IMAGE_BASE_URL").rstrip("/")
-    app["openai_image_model"] = required_env("OPENAI_IMAGE_MODEL")
-    api_key = os.environ.get("OPENAI_IMAGE_API_KEY", "").strip()
+    app["openai_image_base_url"] = (
+        os.environ.get("OPENAI_IMAGE_BASE_URL", OVH_IMAGE_BASE_URL).strip().rstrip("/")
+    )
+    app["openai_image_model"] = (
+        os.environ.get("OPENAI_IMAGE_MODEL", OVH_IMAGE_MODEL).strip()
+    )
+    # Anonymous OVHcloud access needs no key. An optional token can be added
+    # later as a GitHub Actions secret if the user chooses authenticated access.
+    api_key = (
+        os.environ.get("OVH_AI_ENDPOINTS_ACCESS_TOKEN", "").strip()
+        or os.environ.get("OPENAI_IMAGE_API_KEY", "").strip()
+    )
     app["openai_image_api_keys"] = [api_key] if api_key else []
     app["openai_image_prompt_template"] = "{term}"
     with CONFIG_FILE.open("w", encoding="utf-8") as handle:
@@ -87,7 +94,10 @@ def main() -> int:
         "video_language": "en-US",
     }
     TASK_FILE.write_text(json.dumps([task], ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Rendering {len(scenes)} cartoon scene(s). Image provider charges/quotas may apply.")
+    print(
+        f"Rendering {len(scenes)} cartoon scene(s) with OVHcloud SDXL "
+        "(free model; anonymous rate limit: 2 requests/minute/IP/model)."
+    )
     return subprocess.run(
         ["uv", "run", "python", "cli.py", "--batch-file", str(TASK_FILE), "--stop-at", "video"],
         cwd=ROOT,
