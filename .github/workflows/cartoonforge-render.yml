@@ -22,11 +22,11 @@ on:
           - Watercolour storybook
           - Claymation
       scenes:
-        description: "Number of illustrated scenes; image-provider charges may apply"
+        description: "Number of illustrated scenes; OVHcloud anonymous API is limited to 2 requests/minute"
         required: true
         type: choice
         options: ["3", "4", "5", "6", "8"]
-        default: "4"
+        default: "3"
       voice:
         description: "Narration voice"
         required: true
@@ -79,9 +79,8 @@ jobs:
           CARTOON_STYLE: ${{ inputs.style }}
           CARTOON_SCENES: ${{ inputs.scenes }}
           CARTOON_VOICE: ${{ inputs.voice }}
-          OPENAI_IMAGE_BASE_URL: ${{ secrets.OPENAI_IMAGE_BASE_URL }}
-          OPENAI_IMAGE_API_KEY: ${{ secrets.OPENAI_IMAGE_API_KEY }}
-          OPENAI_IMAGE_MODEL: ${{ secrets.OPENAI_IMAGE_MODEL }}
+          # Optional: leave unset for anonymous free-tier access.
+          OVH_AI_ENDPOINTS_ACCESS_TOKEN: ${{ secrets.OVH_AI_ENDPOINTS_ACCESS_TOKEN }}
         run: uv run python cartoonforge/cloud_runner.py
 
       - name: Collect generated MP4 files
