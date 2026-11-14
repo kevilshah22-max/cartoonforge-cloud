@@ -66,10 +66,6 @@ Optional script direction: {script_hint or "None"}
 Optional character direction: {character_hint or "Invent a distinctive original character"}
 """.strip()
 
-    endpoint = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{GEMINI_MODEL}:generateContent"
-    )
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
@@ -78,26 +74,71 @@ Optional character direction: {character_hint or "Invent a distinctive original 
             "responseMimeType": "application/json",
         },
     }
-    request = urllib.request.Request(
-        endpoint,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "x-goog-api-key": api_key,
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=120) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace")[:1200]
+
+    # A temporary 503 should not kill the whole video job. Retry transient
+    # failures, then try the lower-cost stable Flash-Lite model as a fallback.
+    fallback_model = os.environ.get(
+        "GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite"
+    ).strip()
+    models = [GEMINI_MODEL]
+    if fallback_model and fallback_model != GEMINI_MODEL:
+        models.append(fallback_model)
+
+    result = None
+    last_error = None
+    transient_statuses = {429, 500, 502, 503, 504}
+    for model in models:
+        endpoint = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model}:generateContent"
+        )
+        for attempt, delay in enumerate((0, 8, 20, 40), start=1):
+            if delay:
+                print(
+                    f"Gemini {model} is temporarily unavailable; "
+                    f"retrying in {delay}s (attempt {attempt}/4)...",
+                    flush=True,
+                )
+                time.sleep(delay)
+            request = urllib.request.Request(
+                endpoint,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": api_key,
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=120) as response:
+                    result = json.loads(response.read().decode("utf-8"))
+                print(f"Story generation succeeded using {model}.")
+                break
+            except urllib.error.HTTPError as error:
+                detail = error.read().decode("utf-8", errors="replace")[:1200]
+                last_error = (error.code, detail)
+                if error.code not in transient_statuses:
+                    raise SystemExit(
+                        f"Gemini API returned HTTP {error.code} using {model}. "
+                        f"Check the API key and model access. Details: {detail}"
+                    ) from error
+                print(
+                    f"Gemini {model} returned HTTP {error.code} "
+                    f"(temporary service/rate limit issue).",
+                    flush=True,
+                )
+            except (urllib.error.URLError, TimeoutError) as error:
+                last_error = ("network", str(error))
+                print(f"Gemini network error using {model}: {error}", flush=True)
+        if result is not None:
+            break
+
+    if result is None:
+        code, detail = last_error or ("unknown", "No response received")
         raise SystemExit(
-            f"Gemini API returned HTTP {error.code}. Check the API key, model access "
-            f"and free-tier quota. Details: {detail}"
-        ) from error
-    except (urllib.error.URLError, TimeoutError) as error:
-        raise SystemExit(f"Could not reach the Gemini API: {error}") from error
+            "Gemini story generation failed after automatic retries and fallback. "
+            f"Last error: HTTP {code}. Details: {detail}"
+        )
 
     try:
         text = result["candidates"][0]["content"]["parts"][0]["text"]
