@@ -5,6 +5,9 @@ import os
 import re
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import toml
@@ -18,23 +21,126 @@ TASK_FILE = ROOT / ".cartoonforge-task.json"
 # Anonymous requests are rate-limited to two requests per minute per IP/model.
 OVH_IMAGE_BASE_URL = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
 OVH_IMAGE_MODEL = "stable-diffusion-xl-base-v10"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash").strip()
+
+
+def generate_story_with_gemini(
+    idea: str, style: str, scene_count: int, script_hint: str = "", character_hint: str = ""
+) -> tuple[str, str]:
+    """Turn a short idea into a production-ready script and character bible."""
+    api_key = os.environ.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        raise SystemExit(
+            "Gemini auto-creation is enabled, but GEMINI_API_KEY is missing. "
+            "Add it as a GitHub Actions repository secret, or disable auto-creation "
+            "and provide both a script and character description."
+        )
+
+    prompt = f"""
+You are the story editor and character designer for CartoonForge, a short-form cartoon studio.
+Create a coherent, family-friendly cartoon story from the user's idea.
+
+Return ONLY valid JSON with exactly these keys:
+{{
+  "title": "short engaging title",
+  "script": "complete narration/script with clear beginning, middle and ending",
+  "character": "a detailed visual character bible for the recurring lead character"
+}}
+
+Requirements:
+- Write the script in natural, vivid English, unless the idea clearly requests another language.
+- Make it suitable for a short cartoon video of {scene_count} scenes.
+- Write {max(scene_count * 2, 6)} to {max(scene_count * 3, 9)} concise, visual sentences so scenes can be separated cleanly.
+- Give the story a clear hook, escalating action, emotional moment and satisfying ending.
+- Keep the plot simple enough to understand visually; avoid dialogue-heavy scenes.
+- Character bible must specify species/type, age impression, body shape, face, eyes, colours, clothing, accessories and distinctive markings.
+- Make the character description precise enough to repeat consistently in every image prompt.
+- Do not use copyrighted franchise characters, existing film characters or branded designs.
+- Do not include camera directions, markdown or text outside the JSON.
+- If the user provides a script or character hint, preserve and improve it rather than replacing its core idea.
+
+Art style: {style}
+Number of visual scenes: {scene_count}
+Story idea: {idea}
+Optional script direction: {script_hint or "None"}
+Optional character direction: {character_hint or "Invent a distinctive original character"}
+""".strip()
+
+    endpoint = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{GEMINI_MODEL}:generateContent"
+    )
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": 0.8,
+            "maxOutputTokens": 5000,
+            "responseMimeType": "application/json",
+        },
+    }
+    request = urllib.request.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": api_key,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")[:1200]
+        raise SystemExit(
+            f"Gemini API returned HTTP {error.code}. Check the API key, model access "
+            f"and free-tier quota. Details: {detail}"
+        ) from error
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise SystemExit(f"Could not reach the Gemini API: {error}") from error
+
+    try:
+        text = result["candidates"][0]["content"]["parts"][0]["text"]
+        generated = json.loads(text)
+        script = str(generated.get("script", "")).strip()
+        character = str(generated.get("character", "")).strip()
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as error:
+        raise SystemExit(
+            "Gemini returned an unexpected response. Please retry the workflow."
+        ) from error
+
+    if not script or not character:
+        raise SystemExit("Gemini did not return both a script and character description.")
+    print(f"Gemini created the story: {generated.get('title', 'Untitled cartoon')}")
+    print(f"Generated script length: {len(script)} characters")
+    print(f"Generated character description length: {len(character)} characters")
+    return script, character
 
 
 def scene_chunks(script: str, count: int) -> list[str]:
-    paragraphs = [p.strip() for p in re.split(r"\\n\\s*\\n", script) if p.strip()]
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", script) if p.strip()]
     units: list[str] = []
     for paragraph in paragraphs:
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?。！？])\\s+", paragraph) if s.strip()]
+        sentences = [
+            sentence.strip()
+            for sentence in re.split(r"(?<=[.!?。！？])\s+", paragraph)
+            if sentence.strip()
+        ]
         units.extend(sentences or [paragraph])
     if not units:
         raise SystemExit("The script is empty.")
     if len(units) == 1 and len(units[0].split()) > 45:
         words = units[0].split()
         step = max(1, (len(words) + count - 1) // count)
-        units = [" ".join(words[i:i + step]) for i in range(0, len(words), step)]
+        units = [" ".join(words[i : i + step]) for i in range(0, len(words), step)]
     actual_count = min(count, len(units))
     return [
-        " ".join(units[round(i * len(units) / actual_count):round((i + 1) * len(units) / actual_count)])
+        " ".join(
+            units[
+                round(i * len(units) / actual_count) :
+                round((i + 1) * len(units) / actual_count)
+            ]
+        )
         for i in range(actual_count)
     ]
 
@@ -49,8 +155,9 @@ def configure_image_provider() -> None:
     app["openai_image_model"] = (
         os.environ.get("OPENAI_IMAGE_MODEL", OVH_IMAGE_MODEL).strip()
     )
-    # Anonymous OVHcloud access needs no key. An optional token can be added
-    # later as a GitHub Actions secret if the user chooses authenticated access.
+    # OVHcloud SDXL currently accepts 1024x1024 only. Explicitly override
+    # MoneyPrinterTurbo's portrait/landscape size inference.
+    app["openai_image_size"] = "1024x1024"
     api_key = (
         os.environ.get("OVH_AI_ENDPOINTS_ACCESS_TOKEN", "").strip()
         or os.environ.get("OPENAI_IMAGE_API_KEY", "").strip()
@@ -62,15 +169,33 @@ def configure_image_provider() -> None:
 
 
 def main() -> int:
+    idea = os.environ.get("CARTOON_IDEA", "").strip()
     script = os.environ.get("CARTOON_SCRIPT", "").strip()
     character = os.environ.get("CARTOON_CHARACTER", "").strip()
     style = os.environ.get("CARTOON_STYLE", "3D family animation").strip()
-    count = int(os.environ.get("CARTOON_SCENES", "4"))
+    count = int(os.environ.get("CARTOON_SCENES", "3"))
     voice = os.environ.get("CARTOON_VOICE", "en-US-AriaNeural-Female").strip()
-    if not script or not character:
-        raise SystemExit("Both the script and recurring character description are required.")
+    auto_create = os.environ.get("CARTOON_AUTO_CREATE", "true").lower() in {
+        "1", "true", "yes", "on"
+    }
+
     if not 1 <= count <= 8:
         raise SystemExit("Scene count must be between 1 and 8.")
+
+    if auto_create:
+        if not idea:
+            raise SystemExit("Enter a short story idea to use Gemini auto-creation.")
+        script, character = generate_story_with_gemini(
+            idea=idea,
+            style=style,
+            scene_count=count,
+            script_hint=script,
+            character_hint=character,
+        )
+    elif not script or not character:
+        raise SystemExit(
+            "Manual mode requires both a script and a recurring character description."
+        )
 
     configure_image_provider()
     scenes = scene_chunks(script, count)
@@ -85,7 +210,7 @@ def main() -> int:
         for i, scene in enumerate(scenes)
     ]
     task = {
-        "video_subject": "CartoonForge original animated short",
+        "video_subject": idea or "CartoonForge original animated short",
         "video_script": script,
         "video_terms": prompts,
         "video_source": "openai_image",
@@ -93,13 +218,18 @@ def main() -> int:
         "subtitle_enabled": True,
         "video_language": "en-US",
     }
-    TASK_FILE.write_text(json.dumps([task], ensure_ascii=False, indent=2), encoding="utf-8")
+    TASK_FILE.write_text(
+        json.dumps([task], ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(
         f"Rendering {len(scenes)} cartoon scene(s) with OVHcloud SDXL "
         "(free model; anonymous rate limit: 2 requests/minute/IP/model)."
     )
     return subprocess.run(
-        ["uv", "run", "python", "cli.py", "--batch-file", str(TASK_FILE), "--stop-at", "video"],
+        [
+            "uv", "run", "python", "cli.py", "--batch-file",
+            str(TASK_FILE), "--stop-at", "video",
+        ],
         cwd=ROOT,
         check=False,
     ).returncode
