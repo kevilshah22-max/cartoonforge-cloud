@@ -88,7 +88,7 @@ jobs:
         if: always()
         run: |
           mkdir -p cartoonforge-output
-          find storage/tasks -type f -name '*.mp4' -exec cp --parents {} cartoonforge-output/ ; 2>/dev/null || true
+          find storage/tasks -type f -name '*.mp4' -exec cp --parents {} cartoonforge-output/ \\; 2>/dev/null || true
           find cartoonforge-output -type f -name '*.mp4' -print
 
       - name: Upload finished video
