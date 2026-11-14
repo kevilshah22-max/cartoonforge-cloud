@@ -1,0 +1,101 @@
+name: CartoonForge — Create Cartoon Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: "Paste the complete cartoon story or narration"
+        required: true
+        type: string
+      character:
+        description: "Recurring character appearance, clothing, colours and markings"
+        required: true
+        type: string
+      style:
+        description: "Cartoon art direction"
+        required: true
+        type: choice
+        options:
+          - 3D family animation
+          - 2D hand-drawn cartoon
+          - Anime-inspired animation
+          - Watercolour storybook
+          - Claymation
+      scenes:
+        description: "Number of illustrated scenes; image-provider charges may apply"
+        required: true
+        type: choice
+        options: ["3", "4", "5", "6", "8"]
+        default: "4"
+      voice:
+        description: "Narration voice"
+        required: true
+        type: choice
+        options:
+          - en-US-AriaNeural-Female
+          - en-US-GuyNeural-Male
+          - no-voice
+        default: en-US-AriaNeural-Female
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cartoonforge-render-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out CartoonForge
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg
+          ffmpeg -version | head -n 1
+
+      - name: Install project dependencies
+        run: uv sync --frozen --no-dev
+
+      - name: Generate cartoon video
+        env:
+          CARTOON_SCRIPT: ${{ inputs.script }}
+          CARTOON_CHARACTER: ${{ inputs.character }}
+          CARTOON_STYLE: ${{ inputs.style }}
+          CARTOON_SCENES: ${{ inputs.scenes }}
+          CARTOON_VOICE: ${{ inputs.voice }}
+          OPENAI_IMAGE_BASE_URL: ${{ secrets.OPENAI_IMAGE_BASE_URL }}
+          OPENAI_IMAGE_API_KEY: ${{ secrets.OPENAI_IMAGE_API_KEY }}
+          OPENAI_IMAGE_MODEL: ${{ secrets.OPENAI_IMAGE_MODEL }}
+        run: uv run python cartoonforge/cloud_runner.py
+
+      - name: Collect generated MP4 files
+        if: always()
+        run: |
+          mkdir -p cartoonforge-output
+          find storage/tasks -type f -name '*.mp4' -exec cp --parents {} cartoonforge-output/ ; 2>/dev/null || true
+          find cartoonforge-output -type f -name '*.mp4' -print
+
+      - name: Upload finished video
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cartoonforge-video-${{ github.run_number }}
+          path: cartoonforge-output/**/*.mp4
+          if-no-files-found: error
+          retention-days: 7
