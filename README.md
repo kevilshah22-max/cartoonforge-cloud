@@ -1,5 +1,17 @@
 <div align="center">
 
+# CartoonForge Cloud 🎬
+
+**Cartoon script → recurring characters → illustrated scenes → narrated MP4**
+
+[Open the CartoonForge cloud setup and one-click workflow](CARTOONFORGE-CLOUD.md) · [CartoonForge-specific README](README-CartoonForge.md)
+
+---
+
+</div>
+
+<div align="center">
+
 # MoneyPrinterTurbo 💸
 
 ### 一站式 AI 短视频生成工具
