@@ -3,13 +3,22 @@ name: CartoonForge — Create Cartoon Video
 on:
   workflow_dispatch:
     inputs:
-      script:
-        description: "Paste the complete cartoon story or narration"
+      idea:
+        description: "Describe your cartoon idea in one or two sentences"
         required: true
         type: string
-      character:
-        description: "Recurring character appearance, clothing, colours and markings"
+      auto_create:
+        description: "Use Gemini to write the script and design the recurring character"
         required: true
+        type: boolean
+        default: true
+      script:
+        description: "Optional script or extra story direction (Gemini can write it)"
+        required: false
+        type: string
+      character:
+        description: "Optional character direction (Gemini can design it)"
+        required: false
         type: string
       style:
         description: "Cartoon art direction"
@@ -74,12 +83,15 @@ jobs:
 
       - name: Generate cartoon video
         env:
+          CARTOON_IDEA: ${{ inputs.idea }}
+          CARTOON_AUTO_CREATE: ${{ inputs.auto_create }}
           CARTOON_SCRIPT: ${{ inputs.script }}
           CARTOON_CHARACTER: ${{ inputs.character }}
           CARTOON_STYLE: ${{ inputs.style }}
           CARTOON_SCENES: ${{ inputs.scenes }}
           CARTOON_VOICE: ${{ inputs.voice }}
-          # Optional: leave unset for anonymous free-tier access.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Optional: leave unset for anonymous free-tier image generation.
           OVH_AI_ENDPOINTS_ACCESS_TOKEN: ${{ secrets.OVH_AI_ENDPOINTS_ACCESS_TOKEN }}
         run: uv run python cartoonforge/cloud_runner.py
 
