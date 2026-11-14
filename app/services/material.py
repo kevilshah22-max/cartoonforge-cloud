@@ -1432,7 +1432,7 @@ OPENAI_IMAGE_MAX_ATTEMPTS = 3
 OPENAI_IMAGE_MAX_BYTES = 25 * 1024 * 1024
 OPENAI_IMAGE_MAX_PIXELS = 50_000_000
 # 串行出图 + 线性退避，兼容中转服务普遍的限流恢复窗口。
-OPENAI_IMAGE_RETRY_BACKOFF_SECONDS = (5, 15, 30)
+# The free OVHcloud anonymous tier allows two requests/minute; long backoff\n# windows let a 429 retry cross the provider's rolling rate-limit window.\nOPENAI_IMAGE_RETRY_BACKOFF_SECONDS = (31, 31)
 # 同步生成接口可能需要数十秒才返回图片，读超时给足余量。
 OPENAI_IMAGE_REQUEST_TIMEOUT = (30, 300)
 # 图片已按张计费后的下载重试：优先重试原地址，而不是重新生成同一张图。
