@@ -99,14 +99,19 @@ jobs:
         if: always()
         run: |
           mkdir -p cartoonforge-output
-          find storage/tasks -type f -name '*.mp4' -exec cp --parents {} cartoonforge-output/ + 2>/dev/null || true
-          find cartoonforge-output -type f -name '*.mp4' -print
+          # Copy only completed final videos to a flat, predictable upload directory.
+          # The runner reports final-*.mp4 paths under storage/tasks; searching from
+          # the repository root also handles nested task directories safely.
+          find . -type f -path '*/storage/tasks/*/final-*.mp4' -print -exec cp {} cartoonforge-output/ \;
+          echo "Collected MP4 files:"
+          find cartoonforge-output -maxdepth 1 -type f -name '*.mp4' -print
+          test -n "$(find cartoonforge-output -maxdepth 1 -type f -name '*.mp4' -print -quit)"
 
       - name: Upload finished video
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: cartoonforge-video-${{ github.run_number }}
-          path: cartoonforge-output/**/*.mp4
+          path: cartoonforge-output/*.mp4
           if-no-files-found: error
           retention-days: 7
