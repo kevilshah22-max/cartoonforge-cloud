@@ -13,19 +13,21 @@ narration audio. If the provider is unavailable, the baseline MP4 is kept.
 4. Add a repository secret named `MAGIC_HOUR_API_KEY` and paste the key as its value.
 5. Run **Actions → CartoonForge — Create Cartoon Video → Run workflow**.
 
-No payment card is required to create the account or obtain the advertised starter
-credits. The current provider documentation advertises 400 signup credits. This
-integration uses the LTX 2.5 model at 480p and limits a run to at most 360 estimated
-credits (normally three 5-second scene clips), leaving a small reserve. Actual
-availability, model access, and credit balances are controlled by Magic Hour and can
-change. The workflow does not purchase credits or subscribe on the user's behalf.
+Magic Hour may offer starter credits or account-specific rewards, but the amount is
+not guaranteed. Before uploading or generating anything, CartoonForge reads the live
+credit balance from the account API. LTX 2.5 at 480p is currently listed at 24 credits
+per output second. A run is capped at 360 estimated credits and is shortened to fit
+the available balance; if there are not enough credits for even a one-second clip per
+scene, the enhancement is skipped. The workflow never purchases credits or subscribes
+on the user's behalf.
 
 ## Important limitations
 
 - The Magic Hour pass is optional. Without the secret, the existing free baseline
   render runs unchanged.
-- If the provider rejects the key, runs out of credits, times out, or returns an
-  invalid result, CartoonForge logs the reason and keeps the original MP4.
+- If the provider rejects the key, the account balance is too low, a job times out,
+  or an invalid result is returned, CartoonForge logs the reason and keeps the
+  original MP4.
 - Free-account generations are for personal, non-commercial use under Magic Hour's
   current terms. Commercial use requires a paid subscription, credit-pack purchase,
   or separately agreed paid usage-based arrangement.
