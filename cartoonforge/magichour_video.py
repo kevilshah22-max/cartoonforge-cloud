@@ -57,6 +57,16 @@ def _request_json(method: str, url: str, api_key: str, payload=None, timeout=60)
         raise MagicHourError(f"Magic Hour network error: {error}") from error
 
 
+def _available_credits(api_key: str) -> int:
+    account = _request_json("GET", f"{API_BASE}/account", api_key)
+    try:
+        credits = int(account["credits"])
+    except (KeyError, TypeError, ValueError) as error:
+        raise MagicHourError("Magic Hour account response did not include a valid credit balance.") from error
+    print(f"Magic Hour account balance: {credits} credits.", flush=True)
+    return max(0, credits)
+
+
 def _upload_image(image_path: Path, api_key: str) -> str:
     extension = image_path.suffix.lower().lstrip(".")
     if extension not in {"png", "jpg", "jpeg", "webp"}:
@@ -255,13 +265,38 @@ def enhance_latest_render(root: Path, started_at: float, scene_limit: int = 3) -
         return False
 
     final_video = max(renders, key=lambda item: item.stat().st_mtime)
-    seconds_per_scene = max(1, min(5, MAX_TRIAL_CREDITS // CREDITS_PER_SECOND // len(images)))
+    try:
+        available_credits = _available_credits(api_key)
+    except Exception as error:
+        print(
+            f"Magic Hour account preflight failed ({type(error).__name__}: {error}). "
+            "Keeping the original free render.",
+            flush=True,
+        )
+        return False
+
+    # LTX 2.5 at 480p costs 24 credits per output second. Never spend more
+    # than 360 credits in one run, and never queue work beyond the live balance.
+    safe_budget = min(MAX_TRIAL_CREDITS, available_credits)
+    seconds_per_scene = min(
+        5, safe_budget // CREDITS_PER_SECOND // len(images)
+    )
+    if seconds_per_scene < 1:
+        print(
+            f"Magic Hour skipped: {available_credits} credits available; "
+            f"at least {len(images) * CREDITS_PER_SECOND} are required.",
+            flush=True,
+        )
+        return False
+
     work_dir = final_video.parent / "magichour-animation"
     work_dir.mkdir(parents=True, exist_ok=True)
     clips = []
+    estimated_total = len(images) * seconds_per_scene * CREDITS_PER_SECOND
     print(
         f"Magic Hour enhancement: {len(images)} scene(s), {seconds_per_scene}s each, "
-        f"up to {len(images) * seconds_per_scene * CREDITS_PER_SECOND} trial credits.",
+        f"estimated {estimated_total} credits (live balance {available_credits}; "
+        f"per-run cap {MAX_TRIAL_CREDITS}).",
         flush=True,
     )
     try:
