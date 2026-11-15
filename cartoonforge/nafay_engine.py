@@ -155,45 +155,51 @@ COMPLETE, UNMODIFIED REFERENCE SOURCE:
         model = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
         fallback = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite")
         html = None
-        for chosen in [model, fallback]:
+        for chosen, request_timeout in [(model, 150), (fallback, 90)]:
             if not chosen:
                 continue
             url = "https://generativelanguage.googleapis.com/v1beta/models/" + chosen + ":generateContent"
-            for delay in [0, 8, 20]:
-                if delay:
-                    time.sleep(delay)
-                body = json.dumps({
-                    "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                    "generationConfig": {"temperature": 0.25, "maxOutputTokens": 24000}
-                }).encode()
-                req = urllib.request.Request(url, data=body, headers={
-                    "Content-Type": "application/json", "x-goog-api-key": key
-                }, method="POST")
-                try:
-                    with urllib.request.urlopen(req, timeout=240) as response:
-                        result = json.loads(response.read().decode())
-                    html = result["candidates"][0]["content"]["parts"][0]["text"].strip()
-                    break
-                except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, KeyError, IndexError) as exc:
-                    print(f"Gemini {chosen} retry: {exc}", flush=True)
-            if html:
+            body = json.dumps({
+                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "temperature": 0.25,
+                    "maxOutputTokens": 16000,
+                    "thinkingConfig": {"thinkingLevel": "low"}
+                }
+            }).encode()
+            req = urllib.request.Request(url, data=body, headers={
+                "Content-Type": "application/json", "x-goog-api-key": key
+            }, method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=request_timeout) as response:
+                    result = json.loads(response.read().decode())
+                html = result["candidates"][0]["content"]["parts"][0]["text"].strip()
                 break
+            except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, KeyError, IndexError) as exc:
+                print(f"Gemini {chosen} failed; trying the next path: {exc}", flush=True)
+        preview_only = False
         if not html:
-            raise RuntimeError("Gemini could not generate the animation after retries and fallback.")
+            print("Gemini did not return a new animation in time; using the original Bio Glow source as a non-publishable visual preview.", flush=True)
+            html = source
+            preview_only = True
         fence = chr(96) * 3
         if html.startswith(fence):
             html = html.split("\n", 1)[1] if "\n" in html else html[len(fence):]
         if html.rstrip().endswith(fence):
             html = html.rstrip()[:-len(fence)]
-        if not html.lstrip().lower().startswith(("<!doctype html", "<html")):
-            raise RuntimeError("Gemini did not return a complete HTML document.")
-        for required in ["<canvas", "window.seek", "window.DURATION", "window.scoreSound", "window.SFX"]:
-            if required.lower() not in html.lower():
-                raise RuntimeError("Generated animation is missing required interface: " + required)
+        valid_document = html.lstrip().lower().startswith(("<!doctype html", "<html"))
+        valid_interfaces = all(required.lower() in html.lower() for required in [
+            "<canvas", "window.seek", "window.DURATION", "window.scoreSound", "window.SFX"
+        ])
+        if not valid_document or not valid_interfaces:
+            print("Gemini output was incomplete; switching to the original Bio Glow source preview.", flush=True)
+            html = source
+            preview_only = True
         animation = project / "animation.html"
         animation.write_text(html)
         (project / "style-metadata.json").write_text(json.dumps({
-            "slug": slug, "source_url": source_url, "topic": topic, "style_entry": style
+            "slug": slug, "source_url": source_url, "topic": topic, "style_entry": style,
+            "preview_only": preview_only
         }, ensure_ascii=False, indent=2))
         chrome = os.environ.get("CHROME", "")
         renderer = [sys.executable, str(Path(__file__).resolve().parent / "nafay-kit" / "render.py")]
@@ -217,11 +223,16 @@ COMPLETE, UNMODIFIED REFERENCE SOURCE:
         for src, dst in [
             (project / "script.json", output / "script.json"),
             (project / "data/words.json", output / "word-timings.json"),
-            (project / "style-metadata.json", output / "style-metadata.json")
+            (project / "style-metadata.json", output / "style-metadata.json"),
+            (source_file, output / "reference-source.html"),
+            (animation, output / "animation.html"),
+            (project / "data/narration.wav", output / "narration.wav")
         ]:
             shutil.copy2(src, dst)
         (output / "qa-report.json").write_text(json.dumps({
             "automated_checks": "passed", "visual_review": "pending", "publishable": False,
+            "preview_only": preview_only,
+            "preview_note": "Original Bio Glow style sample used as a preview; not the final topic-adapted animation." if preview_only else None,
             "duration_seconds": round(duration, 2), "width": video.get("width"),
             "height": video.get("height"), "audio_present": audio,
             "contact_sheet_generated": (output / "contact-sheet.jpg").exists(),
