@@ -22,12 +22,6 @@ on:
         type: choice
         options: [bf_emma, bm_george, bm_fable, am_michael, am_puck, am_fenrir, am_onyx, af_heart, af_bella, af_nicole]
         default: bf_emma
-      music:
-        description: "Procedural music bed"
-        required: true
-        type: choice
-        options: [tension, bed, bounce, none]
-        default: tension
       sources:
         description: "At least two reliable source URLs, separated by semicolons or new lines"
         required: true
@@ -77,7 +71,6 @@ jobs:
           NAFAY_SCRIPT: ${{ inputs.script }}
           NAFAY_STYLE: ${{ inputs.style }}
           NAFAY_VOICE: ${{ inputs.voice }}
-          NAFAY_MUSIC: ${{ inputs.music }}
           NAFAY_SOURCES: ${{ inputs.sources }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: gemini-3.8-flash
