@@ -28,8 +28,12 @@ window.DURATION=DURATION;let now=0;
 const rnd=(n)=>{let x=Math.sin(n*127.1+311.7)*43758.5453;return x-Math.floor(x)};
 function grad(x,y,r,c1,c2){let g=ctx.createRadialGradient(x-r*.3,y-r*.35,r*.03,x,y,r);g.addColorStop(0,c1);g.addColorStop(1,c2);return g}
 function cell(x,y,s,rot,alpha=1){ctx.save();ctx.translate(x,y);ctx.rotate(rot);ctx.globalAlpha=alpha;ctx.scale(s,s*.78);
-ctx.shadowColor='#ff263d';ctx.shadowBlur=26;ctx.fillStyle=grad(-10,-16,74,'#ff9a9e','#9d071b');ctx.beginPath();ctx.ellipse(0,0,57,38,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-ctx.fillStyle=grad(0,1,35,'#36040d','#790817');ctx.beginPath();ctx.ellipse(0,0,27,16,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(255,190,190,.5)';ctx.lineWidth=2;ctx.stroke();ctx.restore()}
+ctx.shadowColor='#ff263d';ctx.shadowBlur=24;ctx.fillStyle=grad(-13,-18,82,'#ffd0c9','#a91530');ctx.beginPath();ctx.ellipse(0,0,59,39,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+let d=ctx.createRadialGradient(-2,-1,2,0,0,34);d.addColorStop(0,'#781126');d.addColorStop(.48,'#b72a43');d.addColorStop(1,'rgba(255,170,174,.06)');
+ctx.fillStyle=d;ctx.beginPath();ctx.ellipse(0,0,31,19,0,0,Math.PI*2);ctx.fill();
+ctx.strokeStyle='rgba(255,225,218,.7)';ctx.lineWidth=2.2;ctx.beginPath();ctx.ellipse(0,0,56,36,0,0,Math.PI*2);ctx.stroke();
+ctx.strokeStyle='rgba(255,235,226,.36)';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(-7,-12,25,9,-.16,Math.PI*1.08,Math.PI*1.88);ctx.stroke();
+ctx.restore()}
 function text(str,x,y,size,color='#fff',align='center'){ctx.textAlign=align;ctx.font='700 '+size+'px Arial';ctx.fillStyle=color;ctx.shadowColor='#000';ctx.shadowBlur=12;ctx.fillText(str,x,y);ctx.shadowBlur=0}
 function background(t){let g=ctx.createLinearGradient(0,0,720,1280);g.addColorStop(0,'#250710');g.addColorStop(.5,'#520b19');g.addColorStop(1,'#17070f');ctx.fillStyle=g;ctx.fillRect(0,0,720,1280);
 ctx.globalAlpha=.17;for(let i=0;i<18;i++){let x=rnd(i)*720,y=(rnd(i+30)*1280+t*22)%1280;ctx.fillStyle='#ff5365';ctx.beginPath();ctx.arc(x,y,2+rnd(i+8)*5,0,7);ctx.fill()}ctx.globalAlpha=1}
@@ -43,7 +47,14 @@ else if(p<.65){text('OXYGEN CHANGES THE SHADE',360,150,34);cell(360,650,2.05,Mat
 else if(p<.83){text('SO WHY DO VEINS LOOK BLUE?',360,150,34);ctx.fillStyle='#d991a0';ctx.fillRect(70,450,580,280);ctx.fillStyle='#f1b4bc';ctx.fillRect(70,450,580,85);for(let i=0;i<7;i++){ctx.strokeStyle=i%2?'#4b9fd3':'#ffb85e';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(120+i*75,280);ctx.lineTo(180+i*58,460);ctx.stroke()}cell(360,650,1.15,0);text('Light is absorbed and scattered',360,1080,26,'#fff')}
 else{ text('THE REAL TRICK IS LIGHT',360,150,38);for(let i=0;i<8;i++){let x=100+i*75;ctx.strokeStyle=i%2?'#7ed5ff':'#ffbf70';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x,350);ctx.lineTo(x+Math.sin(now+i)*25,850);ctx.stroke()}cell(360,650,1.6,0);text('The blood inside is still red.',360,1080,30,'#fff')}
 const active=(DATA.lines||[]).find(v=>now>=Number(v.start||v.start_time||0)&&now<=Number(v.end||v.end_time||0));
-if(active){let cap=String(active.text||active.line||'');if(cap.length>58)cap=cap.slice(0,55)+'…';ctx.fillStyle='rgba(8,3,8,.72)';ctx.fillRect(34,1135,652,92);text(cap,360,1190,23,'#fff')}
+if(active){
+ let cap=String(active.text||active.line||'').trim(), words=cap.split(/\\s+/), rows=[], row='';
+ for(const w of words){const test=(row+' '+w).trim();if(test.length>43&&row){rows.push(row);row=w}else row=test}
+ if(row)rows.push(row);rows=rows.slice(0,3);
+ const boxH=rows.length*30+34, top=1208-boxH;
+ ctx.fillStyle='rgba(8,3,8,.78)';ctx.fillRect(28,top,664,boxH);
+ rows.forEach((line,i)=>text(line,360,top+30+i*30,21,'#fff'));
+}
 ctx.fillStyle='rgba(255,255,255,.65)';ctx.fillRect(34,1247,652,4);ctx.fillStyle='#ff7184';ctx.fillRect(34,1247,652*now/DURATION,4);
 }
 window.seek=(t)=>{draw(t);return true};window.scoreSound=[];window.SFX={render:()=>[]};draw(0);
