@@ -7,10 +7,12 @@ on:
         description: "Short topic / video title"
         required: true
         type: string
+        default: "Your Veins Aren’t Actually Blue"
       script:
         description: "Fact-checked narration script (70–125 words, 30–40 second target)"
         required: true
         type: string
+        default: "Your veins look blue—but your blood is not. So what are you actually seeing? Human blood gets its red colour from haemoglobin, the oxygen-carrying protein inside red blood cells. When haemoglobin carries oxygen, blood appears brighter red. After releasing oxygen into tissues, it becomes darker red—not blue. The blue appearance comes from how light travels through skin and tissue: different wavelengths are absorbed and scattered before the reflected light reaches your eyes. So the next time you spot blue veins, remember: the blood inside them is still red. The real trick is light, not colour-changing blood."
       style:
         description: "Any slug from the Nafay 3D Style Library catalogue"
         required: true
@@ -26,6 +28,7 @@ on:
         description: "At least two reliable source URLs, separated by semicolons or new lines"
         required: true
         type: string
+        default: "https://www.ncbi.nlm.nih.gov/books/NBK2263/;https://pdb101.rcsb.org/motm/41;https://www.scienceline.ucsb.edu/getkey.php?key=6854"
 
 permissions:
   contents: read
