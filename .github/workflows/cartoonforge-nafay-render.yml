@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - integration/nafay-style-engine
+    paths:
+      - "cartoonforge/**"
+      - ".github/workflows/cartoonforge-nafay-render.yml"
   workflow_dispatch:
 
 permissions:
