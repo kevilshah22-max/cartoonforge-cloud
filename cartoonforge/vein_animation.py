@@ -48,7 +48,7 @@ else if(p<.83){text('SO WHY DO VEINS LOOK BLUE?',360,150,34);ctx.fillStyle='#d99
 else{ text('THE REAL TRICK IS LIGHT',360,150,38);for(let i=0;i<8;i++){let x=100+i*75;ctx.strokeStyle=i%2?'#7ed5ff':'#ffbf70';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x,350);ctx.lineTo(x+Math.sin(now+i)*25,850);ctx.stroke()}cell(360,650,1.6,0);text('The blood inside is still red.',360,1080,30,'#fff')}
 const active=(DATA.lines||[]).find(v=>now>=Number(v.start||v.start_time||0)&&now<=Number(v.end||v.end_time||0));
 if(active){
- let cap=String(active.text||active.line||'').trim(), words=cap.split(/\\s+/), rows=[], row='';
+ let cap=String(active.text||active.line||'').trim(), words=cap.split(' '), rows=[], row='';
  for(const w of words){const test=(row+' '+w).trim();if(test.length>43&&row){rows.push(row);row=w}else row=test}
  if(row)rows.push(row);rows=rows.slice(0,3);
  const boxH=rows.length*30+34, top=1208-boxH;
