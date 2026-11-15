@@ -95,6 +95,22 @@ def main():
         scripts = kit / "scripts"
         run([sys.executable, str(scripts / "voice.py"), str(project)])
         run([sys.executable, str(scripts / "words.py"), str(project)])
+        narration_duration = float(subprocess.check_output([
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", str(project / "data/narration.wav")
+        ], text=True).strip())
+        cues = [
+            {"t": 0.10, "type": "whoosh", "gain": -18, "soft": True},
+            {"t": 7.45, "type": "whoosh", "gain": -18, "soft": True},
+            {"t": 14.00, "type": "pop", "gain": -19, "soft": True},
+            {"t": 18.20, "type": "whoosh", "gain": -18, "soft": True},
+            {"t": 26.35, "type": "whoosh", "gain": -18, "soft": True},
+            {"t": 30.80, "type": "shimmer", "gain": -20, "soft": True}
+        ]
+        (project / "data/cues.json").write_text(json.dumps({
+            "duration": narration_duration, "cues": cues
+        }, ensure_ascii=False, indent=2))
+        run([sys.executable, str(scripts / "mix.py"), str(project)])
 
         if slug != "bio-glow":
             raise RuntimeError("The cloud animation generator currently supports bio-glow.")
@@ -109,8 +125,9 @@ def main():
         }, ensure_ascii=False, indent=2))
         chrome = os.environ.get("CHROME", "")
         renderer = [sys.executable, str(Path(__file__).resolve().parent / "nafay-kit" / "render.py")]
+        (project / "index.html").write_text(animation.read_text())
         sheet = renderer + [str(animation), str(output / "contact-sheet.jpg"), "--sheet", "--step", "0.5"]
-        final = renderer + [str(animation), str(output / "final.mp4"), "--vo", str(project / "data/narration.wav"), "--fps", "30", "--scale", "1.0"]
+        final = renderer + ["--project", str(project), str(output / "final.mp4"), "--fps", "30", "--scale", "1.0"]
         if chrome:
             sheet += ["--chrome", chrome]
             final += ["--chrome", chrome]
