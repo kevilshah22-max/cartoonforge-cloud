@@ -1,0 +1,25 @@
+name: CartoonForge 2.0 validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "cartoonforge/**"
+      - ".github/workflows/cartoonforge-render.yml"
+      - ".github/workflows/cartoonforge-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  python-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile CartoonForge Python modules
+        run: python -m py_compile cartoonforge/cloud_runner.py cartoonforge/magichour_video.py
