@@ -29,7 +29,7 @@ on:
         options: [tension, bed, bounce, none]
         default: tension
       sources:
-        description: "Source URLs, one per line (optional)"
+        description: "At least two reliable source URLs, one per line"
         required: true
         type: string
 
@@ -37,7 +37,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: cartoonforge-nafay-\${{ github.ref }}
+  group: cartoonforge-nafay-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -73,13 +73,13 @@ jobs:
 
       - name: Generate narrated Nafay-style animation
         env:
-          NAFAY_TOPIC: \${{ inputs.topic }}
-          NAFAY_SCRIPT: \${{ inputs.script }}
-          NAFAY_STYLE: \${{ inputs.style }}
-          NAFAY_VOICE: \${{ inputs.voice }}
-          NAFAY_MUSIC: \${{ inputs.music }}
-          NAFAY_SOURCES: \${{ inputs.sources }}
-          GEMINI_API_KEY: \${{ secrets.GEMINI_API_KEY }}
+          NAFAY_TOPIC: ${{ inputs.topic }}
+          NAFAY_SCRIPT: ${{ inputs.script }}
+          NAFAY_STYLE: ${{ inputs.style }}
+          NAFAY_VOICE: ${{ inputs.voice }}
+          NAFAY_MUSIC: ${{ inputs.music }}
+          NAFAY_SOURCES: ${{ inputs.sources }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: gemini-3.8-flash
           GEMINI_FALLBACK_MODEL: gemini-3.5-flash-lite
         run: python cartoonforge/nafay_engine.py
@@ -88,7 +88,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cartoonforge-nafay-\${{ github.run_number }}
+          name: cartoonforge-nafay-${{ github.run_number }}
           path: cartoonforge-nafay-output/
           if-no-files-found: warn
           retention-days: 7
