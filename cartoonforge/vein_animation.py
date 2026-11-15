@@ -7,8 +7,12 @@ from html import escape
 def main():
     project = Path(sys.argv[1])
     out = Path(sys.argv[2])
-    lines = json.loads((project / "data/lines.json").read_text())
-    words = json.loads((project / "data/words.json").read_text())
+    lines_raw = json.loads((project / "data/lines.json").read_text())
+    words_raw = json.loads((project / "data/words.json").read_text())
+    lines = lines_raw if isinstance(lines_raw, list) else next(
+        (lines_raw.get(k) for k in ("lines", "segments", "items", "data") if isinstance(lines_raw.get(k), list)), [])
+    words = words_raw if isinstance(words_raw, list) else next(
+        (words_raw.get(k) for k in ("words", "segments", "items", "data") if isinstance(words_raw.get(k), list)), [])
     duration = float(subprocess.check_output([
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
         "-of", "default=noprint_wrappers=1:nokey=1", str(project / "data/narration.wav")
