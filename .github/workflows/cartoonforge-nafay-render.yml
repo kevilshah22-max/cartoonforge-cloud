@@ -1,0 +1,76 @@
+name: CartoonForge — Nafay Style Renderer
+
+on:
+  push:
+    branches:
+      - integration/nafay-style-engine
+    paths:
+      - "cartoonforge/**"
+      - ".github/workflows/cartoonforge-nafay-render.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out CartoonForge
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Chrome and FFmpeg
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg curl unzip fonts-liberation wget
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/google-chrome.deb
+          sudo apt-get install --yes /tmp/google-chrome.deb
+          google-chrome --version
+          ffmpeg -version | head -n 1
+          echo "CHROME=$(command -v google-chrome)" >> "$GITHUB_ENV"
+
+      - name: Validate Nafay adapter syntax
+        run: python -m py_compile cartoonforge/nafay_engine.py
+
+      - name: Install Nafay rendering dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy scipy kokoro-onnx faster-whisper
+
+      - name: Verify Gemini secret is available
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error::GEMINI_API_KEY is not available to this workflow."
+            exit 1
+          fi
+          echo "Gemini API key is present (value not displayed)."
+
+      - name: Generate narrated Nafay-style animation
+        env:
+          NAFAY_TOPIC: "Your Veins Aren’t Actually Blue"
+          NAFAY_SCRIPT: "Your veins look blue—but your blood is not. So what are you actually seeing? Human blood gets its red colour from haemoglobin, the oxygen-carrying protein inside red blood cells. When haemoglobin carries oxygen, blood appears brighter red. After releasing oxygen into tissues, it becomes darker red—not blue. The blue appearance comes from how light travels through skin and tissue: different wavelengths are absorbed and scattered before the reflected light reaches your eyes. So the next time you spot blue veins, remember: the blood inside them is still red. The real trick is light, not colour-changing blood."
+          NAFAY_STYLE: "bio-glow"
+          NAFAY_VOICE: "bf_emma"
+          NAFAY_SOURCES: "https://www.ncbi.nlm.nih.gov/books/NBK2263/;https://pdb101.rcsb.org/motm/41;https://www.scienceline.ucsb.edu/getkey.php?key=6854"
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: "gemini-3.8-flash"
+          GEMINI_FALLBACK_MODEL: "gemini-3.5-flash-lite"
+        run: python cartoonforge/nafay_engine.py
+
+      - name: Upload MP4, contact sheet and QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cartoonforge-nafay-${{ github.run_number }}
+          path: cartoonforge-nafay-output/
+          if-no-files-found: warn
+          retention-days: 7
