@@ -282,7 +282,11 @@ def main() -> int:
     # only after every AI clip is ready; any provider/quota issue keeps the
     # already-rendered free MP4 intact.
     if os.environ.get("MAGIC_HOUR_API_KEY", "").strip():
-        from cartoonforge.magichour_video import enhance_latest_render
+        if __package__:
+            from .magichour_video import enhance_latest_render
+        else:
+            # This file is also executed directly by the GitHub Actions workflow.
+            from magichour_video import enhance_latest_render
 
         enhance_latest_render(ROOT, render_started_at, scene_limit=min(count, 3))
     else:
