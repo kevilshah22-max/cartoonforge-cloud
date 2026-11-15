@@ -18,7 +18,9 @@ def find_kit(root):
     for p in [root, *root.rglob("*")]:
         if (p / "references/style-catalog.md").is_file() and (p / "scripts/render.py").is_file():
             return p
-    raise RuntimeError("Nafay runtime kit is missing its style catalogue or renderer.")
+    files = sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
+    preview = ", ".join(files[:100]) or "(archive contains no files)"
+    raise RuntimeError("Nafay runtime kit layout not recognised. Extracted files: " + preview)
 
 def entry_for(catalog, slug):
     pos = catalog.find(slug)
