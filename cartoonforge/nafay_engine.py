@@ -112,12 +112,22 @@ Demo topic: Your blood in 60 seconds."""
         source_file = project / "reference-source.html"
         source_type = fetch(source_url, source_file)
         source = source_file.read_text(errors="replace")
-        if "<html" not in source.lower() or len(source) < 5000:
+        if len(source) < 5000 or "<script" not in source.lower() or "window.seek" not in source.lower():
             preview = source[:500].replace("\\n", " ")
             raise RuntimeError(
-                f"Style source was not complete HTML (content-type={source_type}, bytes={len(source)}). "
+                f"Style source was not a usable animation document (content-type={source_type}, bytes={len(source)}). "
                 f"Response preview: {preview}"
             )
+        # Nafay serves this source as an HTML fragment (meta/title/script tags without the outer html/head tags).
+        # Add only missing document wrappers so Chrome can load the reference as a local file.
+        if "<html" not in source.lower():
+            source = "<!doctype html><html><head>" + source
+        if "<body" not in source.lower() and "</head>" in source.lower():
+            source = source.replace("</head>", "</head><body>", 1)
+        if "</body>" not in source.lower():
+            source += "</body>"
+        if "</html>" not in source.lower():
+            source += "</html>"
         line_times = (project / "data/lines.json").read_text()
         word_times = (project / "data/words.json").read_text()
         prompt = f"""
