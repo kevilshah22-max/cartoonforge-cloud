@@ -190,8 +190,7 @@ def _replace_video_track(\n    original: Path, clips: list[Path], work_dir: Path
                    f"concat=n={count}:v=1:a=0[outv]")
     video_label = "outv"
     if subtitle_path and subtitle_path.is_file():
-        subtitle_name = str(subtitle_path).replace("\\\\", "/")
-        subtitle_name = subtitle_name.replace(":", "\\\\:").replace("'", "\\\\'")
+        subtitle_name = str(subtitle_path).replace(":", "\\:").replace("'", "\\'")
         filters.append(f"[outv]subtitles='{subtitle_name}'[captioned]")
         video_label = "captioned"
         print(f"Reapplying generated subtitles: {subtitle_path}", flush=True)
