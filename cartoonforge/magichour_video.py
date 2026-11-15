@@ -171,7 +171,9 @@ def _probe_video(path: Path) -> tuple[int, int, float, bool]:
     return int(stream.get("width", 0)), int(stream.get("height", 0)), duration, bool(audio)
 
 
-def _replace_video_track(\n    original: Path, clips: list[Path], work_dir: Path, subtitle_path: Path | None = None\n) -> None:
+def _replace_video_track(
+    original: Path, clips: list[Path], work_dir: Path, subtitle_path: Path | None = None
+) -> None:
     width, height, duration, has_audio = _probe_video(original)
     if width < 2 or height < 2 or duration <= 0:
         raise MagicHourError("Could not inspect the original CartoonForge MP4.")
