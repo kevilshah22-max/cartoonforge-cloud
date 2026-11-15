@@ -16,11 +16,11 @@ def fetch(url, path):
 
 def find_kit(root):
     for p in [root, *root.rglob("*")]:
-        if (p / "references/style-catalog.md").is_file() and (p / "scripts/render.py").is_file():
+        if (p / "scripts/voice.py").is_file() and (p / "scripts/words.py").is_file():
             return p
     files = sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file())
     preview = ", ".join(files[:100]) or "(archive contains no files)"
-    raise RuntimeError("Nafay runtime kit layout not recognised. Extracted files: " + preview)
+    raise RuntimeError("Nafay voice/timing kit not recognised. Extracted files: " + preview)
 
 def entry_for(catalog, slug):
     pos = catalog.find(slug)
@@ -91,9 +91,18 @@ def main():
         run([sys.executable, str(scripts / "voice.py"), str(project)])
         run([sys.executable, str(scripts / "words.py"), str(project)])
 
-        catalog = (kit / "references/style-catalog.md").read_text()
-        template = (kit / "references/prompt-template.md").read_text()
-        style = entry_for(catalog, slug)
+        if slug != "bio-glow":
+            raise RuntimeError("This first cloud build currently supports bio-glow; additional catalogue styles will be enabled after the first verified render.")
+        style = """Bio Glow — 3D science explainer, 9:16 vertical.
+Look: inside the body, glossy red cells drift down a glowing red vessel toward the camera, with fog for depth, warm bloom, and clean white labels on thin leader lines.
+How it explains: the camera travels down the vessel. One hero cell swims close and gets a label; small blue oxygen bubbles fly in and attach; a glowing counter climbs; a white defender cell rolls through before the takeaway.
+Fonts: Space Grotesk 500/700 and JetBrains Mono 500/700.
+Replace: timeline, cells, hero and guest objects in init3(), pose(t), labels and counters in overlay() and scoreSound().
+Keep: makeGL(), lights3(), the inside-out vessel tube, travelling camera and flowing cells in pose(), proj3() labels, leader(), chip(), wordLine(), vignette() and red bloom.
+Text: headlines >=56px, labels >=22px, counter >=80px. Voiceover sync: hero close-up as named; labels draw on the named word; molecules arrive on introduction; counter locks on the last syllable.
+Sound: slow heartbeat under dark filtered pad and soft flowing hiss; labels soft ticks; molecules glassy pings; hero arrival slow whoosh; counters tick only on number changes; new cell low swell; takeaway shimmer. With voiceover keep heartbeat very low, pings/ticks soft, shimmer only on takeaway.
+Style rules: all geometry is Three.js geometry posed from time; vessel cylinder, tori red cells, displaced icosahedron white cells, emissive molecule spheres; no external images/models. Camera moves forward and sways gently; cells flow at different speeds and fade into fog. Palette deep blood red #3a070b, glossy red #c91d2c, salmon #ff8f7d, oxygen blue #7fd3ff, off-white defenders. One hero object per beat; labels name real structures and their real size/job. Hook under 1 second, hero by second 3, one new label every 1–2 seconds, takeaway holds about 2 seconds.
+Demo topic: Your blood in 60 seconds."""
         source_url = "https://nafay3d.com/styles/" + slug + "/source.html"
         source_file = project / "reference-source.html"
         fetch(source_url, source_file)
@@ -103,20 +112,22 @@ def main():
         line_times = (project / "data/lines.json").read_text()
         word_times = (project / "data/words.json").read_text()
         prompt = f"""
-Follow this Nafay prompt template and selected style specification exactly:
-{template}
+I want an original animated short in the Nafay 3D Style Library's Bio Glow style. Use the selected style specification below and the complete reference HTML as the ground truth for the look, movement, sound system and player.
 
-Create a new original animation for this topic: {topic}
-Narration script: {script}
-Line timings: {line_times}
-Word-level timings: {word_times}
-Source URLs: {json.dumps(sources)}
-Selected full style entry:
+TOPIC: {topic}
+NARRATION: {script}
+VOICEOVER LINE TIMINGS: {line_times}
+WORD-LEVEL TIMINGS: {word_times}
+FACT SOURCES: {json.dumps(sources)}
+
+STYLE SPECIFICATION:
 {style}
 
-Build directly. Return one complete self-contained HTML document only. Preserve the source animation's shared helpers, player, CM and SFX systems, style identity, 9:16 720x1280 canvas, and required interfaces: window.seek(t), numeric window.DURATION, window.scoreSound, window.SFX.render(...), and a canvas. Replace the reference demo story with the supplied topic. Use the real word timings for captions and scene changes. Keep narration dominant, use the selected style's voiceover sound rules, create all geometry in code, and do not use external images or models. Every frame must be deterministic from time.
+BUILD DIRECTLY. Return one complete, self-contained HTML document only. Preserve the reference's player, shared CM helpers, SFX system, Three.js setup, fonts, lighting, vessel geometry, camera movement and red bloom. Replace the demo story with the supplied topic. Build accurate red blood cells, oxygen molecules and white defender cells; do not use robot imagery, stock images, external models or external textures. Use the supplied word timings to synchronize hero arrivals, labels, captions, scene changes and sound events. Every frame must be deterministic from time. Keep all important content inside the 9:16 720x1280 safe area and keep text readable on a phone. Use the style's voiceover mix rules and keep narration clearly dominant.
 
-Complete unmodified reference source:
+REQUIRED INTERFACES: window.seek(t), numeric window.DURATION, window.scoreSound, window.SFX.render(...), and a canvas. The output must be a complete HTML document beginning with <!doctype html> or <html>. Do not return markdown fences, explanations or placeholders.
+
+COMPLETE, UNMODIFIED REFERENCE SOURCE:
 {source}
 """
         key = os.environ.get("GEMINI_API_KEY", "").strip()
@@ -166,7 +177,7 @@ Complete unmodified reference source:
             "slug": slug, "source_url": source_url, "topic": topic, "style_entry": style
         }, ensure_ascii=False, indent=2))
         chrome = os.environ.get("CHROME", "")
-        renderer = [sys.executable, str(scripts / "render.py")]
+        renderer = [sys.executable, str(Path(__file__).resolve().parent / "nafay-kit" / "render.py")]
         sheet = renderer + [str(animation), str(output / "contact-sheet.jpg"), "--sheet", "--step", "0.5"]
         final = renderer + [str(animation), str(output / "final.mp4"), "--vo", str(project / "data/narration.wav"), "--fps", "30", "--scale", "1.0"]
         if chrome:
