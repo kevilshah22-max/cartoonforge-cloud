@@ -266,14 +266,31 @@ def main() -> int:
         f"Rendering {len(scenes)} cartoon scene(s) with OVHcloud SDXL "
         "(free model; anonymous rate limit: 2 requests/minute/IP/model)."
     )
-    return subprocess.run(
+    render_started_at = time.time()
+    result = subprocess.run(
         [
             "uv", "run", "python", "cli.py", "--batch-file",
             str(TASK_FILE), "--stop-at", "video",
         ],
         cwd=ROOT,
         check=False,
-    ).returncode
+    )
+    if result.returncode != 0:
+        return result.returncode
+
+    # Optional generative motion pass. It replaces the still-image video track
+    # only after every AI clip is ready; any provider/quota issue keeps the
+    # already-rendered free MP4 intact.
+    if os.environ.get("MAGIC_HOUR_API_KEY", "").strip():
+        from cartoonforge.magichour_video import enhance_latest_render
+
+        enhance_latest_render(ROOT, render_started_at, scene_limit=min(count, 3))
+    else:
+        print(
+            "MAGIC_HOUR_API_KEY is not set; keeping the free baseline render. "
+            "Add the optional secret to enable AI character motion."
+        )
+    return 0
 
 
 if __name__ == "__main__":
