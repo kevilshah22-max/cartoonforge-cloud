@@ -91,6 +91,8 @@ jobs:
           CARTOON_SCENES: ${{ inputs.scenes }}
           CARTOON_VOICE: ${{ inputs.voice }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Optional: free trial credits are used only when this secret is configured.
+          MAGIC_HOUR_API_KEY: ${{ secrets.MAGIC_HOUR_API_KEY }}
           # Optional: leave unset for anonymous free-tier image generation.
           OVH_AI_ENDPOINTS_ACCESS_TOKEN: ${{ secrets.OVH_AI_ENDPOINTS_ACCESS_TOKEN }}
         run: uv run python cartoonforge/cloud_runner.py
