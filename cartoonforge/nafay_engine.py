@@ -165,7 +165,7 @@ Complete unmodified reference source:
         }, ensure_ascii=False, indent=2))
         chrome = os.environ.get("CHROME", "")
         renderer = [sys.executable, str(scripts / "render.py")]
-        sheet = renderer + [str(animation), str(output / "contact-sheet.jpg"), "--sheet", "--step", "1.0"]
+        sheet = renderer + [str(animation), str(output / "contact-sheet.jpg"), "--sheet", "--step", "0.5"]
         final = renderer + [str(animation), str(output / "final.mp4"), "--vo", str(project / "data/narration.wav"), "--fps", "30", "--scale", "1.0"]
         if chrome:
             sheet += ["--chrome", chrome]
