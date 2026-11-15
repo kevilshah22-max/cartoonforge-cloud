@@ -1,6 +1,9 @@
 name: CartoonForge — Nafay Style Renderer
 
 on:
+  push:
+    branches:
+      - integration/nafay-style-engine
   workflow_dispatch:
     inputs:
       topic:
@@ -39,6 +42,7 @@ concurrency:
 
 jobs:
   render:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[nafay-smoke]')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -70,11 +74,11 @@ jobs:
 
       - name: Generate narrated Nafay-style animation
         env:
-          NAFAY_TOPIC: ${{ inputs.topic }}
-          NAFAY_SCRIPT: ${{ inputs.script }}
-          NAFAY_STYLE: ${{ inputs.style }}
-          NAFAY_VOICE: ${{ inputs.voice }}
-          NAFAY_SOURCES: ${{ inputs.sources }}
+          NAFAY_TOPIC: ${{ inputs.topic || 'Your Veins Aren’t Actually Blue' }}
+          NAFAY_SCRIPT: ${{ inputs.script || 'Your veins look blue—but your blood is not. So what are you actually seeing? Human blood gets its red colour from haemoglobin, the oxygen-carrying protein inside red blood cells. When haemoglobin carries oxygen, blood appears brighter red. After releasing oxygen into tissues, it becomes darker red—not blue. The blue appearance comes from how light travels through skin and tissue: different wavelengths are absorbed and scattered before the reflected light reaches your eyes. So the next time you spot blue veins, remember: the blood inside them is still red. The real trick is light, not colour-changing blood.' }}
+          NAFAY_STYLE: ${{ inputs.style || 'bio-glow' }}
+          NAFAY_VOICE: ${{ inputs.voice || 'bf_emma' }}
+          NAFAY_SOURCES: ${{ inputs.sources || 'https://www.ncbi.nlm.nih.gov/books/NBK2263/;https://pdb101.rcsb.org/motm/41;https://www.scienceline.ucsb.edu/getkey.php?key=6854' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: gemini-3.8-flash
           GEMINI_FALLBACK_MODEL: gemini-3.5-flash-lite
