@@ -171,7 +171,7 @@ def _probe_video(path: Path) -> tuple[int, int, float, bool]:
     return int(stream.get("width", 0)), int(stream.get("height", 0)), duration, bool(audio)
 
 
-def _replace_video_track(original: Path, clips: list[Path], work_dir: Path) -> None:
+def _replace_video_track(\n    original: Path, clips: list[Path], work_dir: Path, subtitle_path: Path | None = None\n) -> None:
     width, height, duration, has_audio = _probe_video(original)
     if width < 2 or height < 2 or duration <= 0:
         raise MagicHourError("Could not inspect the original CartoonForge MP4.")
@@ -188,9 +188,16 @@ def _replace_video_track(original: Path, clips: list[Path], work_dir: Path) -> N
         )
     filters.append("".join(f"[v{i}]" for i in range(count)) +
                    f"concat=n={count}:v=1:a=0[outv]")
+    video_label = "outv"
+    if subtitle_path and subtitle_path.is_file():
+        subtitle_name = str(subtitle_path).replace("\\\\", "/")
+        subtitle_name = subtitle_name.replace(":", "\\\\:").replace("'", "\\\\'")
+        filters.append(f"[outv]subtitles='{subtitle_name}'[captioned]")
+        video_label = "captioned"
+        print(f"Reapplying generated subtitles: {subtitle_path}", flush=True)
     audio_index = count
     command = ["ffmpeg", "-y", *inputs, "-i", str(original),
-               "-filter_complex", ";".join(filters), "-map", "[outv]"]
+               "-filter_complex", ";".join(filters), "-map", f"[{video_label}]"]
     if has_audio:
         command.extend(["-map", f"{audio_index}:a:0"])
     command.extend([
@@ -261,7 +268,12 @@ def enhance_latest_render(root: Path, started_at: float, scene_limit: int = 3) -
             clip_path = work_dir / f"scene-{index:02d}.mp4"
             _animate_one(image_path, clip_path, api_key, seconds_per_scene, index)
             clips.append(clip_path)
-        _replace_video_track(final_video, clips, work_dir)
+        subtitle_files = [
+            path for path in final_video.parent.rglob("*.srt")
+            if path.is_file() and path.stat().st_mtime >= started_at
+        ]
+        subtitle_path = max(subtitle_files, key=lambda item: item.stat().st_mtime) if subtitle_files else None
+        _replace_video_track(final_video, clips, work_dir, subtitle_path=subtitle_path)
         print(f"Magic Hour animation enhancement completed: {final_video}", flush=True)
         return True
     except Exception as error:
