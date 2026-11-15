@@ -24,9 +24,9 @@ def entry_for(catalog, slug):
     pos = catalog.find(slug)
     if pos < 0:
         raise RuntimeError("Unknown style slug: " + slug)
-    start = catalog.rfind("\\n### ", 0, pos)
+    start = catalog.rfind("\n### ", 0, pos)
     start = 0 if start < 0 else start + 1
-    match = re.search(r"^#{2,3}\\s+", catalog[pos:], re.M)
+    match = re.search(r"^#{2,3}\s+", catalog[pos:], re.M)
     end = pos + match.start() if match else len(catalog)
     return catalog[start:end].strip()
 
@@ -50,7 +50,7 @@ def main():
     voice = os.environ.get("NAFAY_VOICE", "bf_emma").strip()
     music = os.environ.get("NAFAY_MUSIC", "tension").strip()
     sources = [s.strip() for s in os.environ.get("NAFAY_SOURCES", "").splitlines() if s.strip()]
-    words = re.findall(r"\\b[\\w’'-]+\\b", script)
+    words = re.findall(r"\b[\w’'-]+\b", script)
     if not topic or not script or not 70 <= len(words) <= 125:
         raise RuntimeError("Enter a topic and a 70–125 word fact-checked script.")
     if not re.fullmatch(r"[a-z0-9-]+", slug):
@@ -74,7 +74,7 @@ def main():
         kit = find_kit(extract)
         project = work / "project"
         (project / "data").mkdir(parents=True)
-        lines = [s.strip() for s in re.split(r"(?<=[.!?])\\s+", script) if s.strip()]
+        lines = [s.strip() for s in re.split(r"(?<=[.!?])\s+", script) if s.strip()]
         if len(lines) < 3:
             raise RuntimeError("Script needs at least three complete sentences.")
         data = {
@@ -148,7 +148,7 @@ Complete unmodified reference source:
             raise RuntimeError("Gemini could not generate the animation after retries and fallback.")
         fence = chr(96) * 3
         if html.startswith(fence):
-            html = html.split("\\n", 1)[1] if "\\n" in html else html[len(fence):]
+            html = html.split("\n", 1)[1] if "\n" in html else html[len(fence):]
         if html.rstrip().endswith(fence):
             html = html.rstrip()[:-len(fence)]
         if not html.lstrip().lower().startswith(("<!doctype html", "<html")):
