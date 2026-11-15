@@ -5,40 +5,9 @@ on:
     branches:
       - integration/nafay-style-engine
   workflow_dispatch:
-    inputs:
-      topic:
-        description: "Short topic / video title"
-        required: true
-        type: string
-        default: "Your Veins Aren’t Actually Blue"
-      script:
-        description: "Fact-checked narration script (70–125 words, 30–40 second target)"
-        required: true
-        type: string
-        default: "Your veins look blue—but your blood is not. So what are you actually seeing? Human blood gets its red colour from haemoglobin, the oxygen-carrying protein inside red blood cells. When haemoglobin carries oxygen, blood appears brighter red. After releasing oxygen into tissues, it becomes darker red—not blue. The blue appearance comes from how light travels through skin and tissue: different wavelengths are absorbed and scattered before the reflected light reaches your eyes. So the next time you spot blue veins, remember: the blood inside them is still red. The real trick is light, not colour-changing blood."
-      style:
-        description: "Any slug from the Nafay 3D Style Library catalogue"
-        required: true
-        type: string
-        default: bio-glow
-      voice:
-        description: "Local Kokoro narration voice"
-        required: true
-        type: choice
-        options: [bf_emma, bm_george, bm_fable, am_michael, am_puck, am_fenrir, am_onyx, af_heart, af_bella, af_nicole]
-        default: bf_emma
-      sources:
-        description: "At least two reliable source URLs, separated by semicolons or new lines"
-        required: true
-        type: string
-        default: "https://www.ncbi.nlm.nih.gov/books/NBK2263/;https://pdb101.rcsb.org/motm/41;https://www.scienceline.ucsb.edu/getkey.php?key=6854"
 
 permissions:
   contents: read
-
-concurrency:
-  group: cartoonforge-nafay-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   render:
@@ -55,6 +24,7 @@ jobs:
 
       - name: Install Chrome and FFmpeg
         run: |
+          set -euxo pipefail
           sudo apt-get update
           sudo apt-get install --yes ffmpeg curl unzip fonts-liberation wget
           wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/google-chrome.deb
@@ -71,16 +41,26 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install numpy scipy kokoro-onnx faster-whisper
 
+      - name: Verify Gemini secret is available
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "::error::GEMINI_API_KEY is not available to this workflow."
+            exit 1
+          fi
+          echo "Gemini API key is present (value not displayed)."
+
       - name: Generate narrated Nafay-style animation
         env:
-          NAFAY_TOPIC: ${{ inputs.topic || 'Your Veins Aren’t Actually Blue' }}
-          NAFAY_SCRIPT: ${{ inputs.script || 'Your veins look blue—but your blood is not. So what are you actually seeing? Human blood gets its red colour from haemoglobin, the oxygen-carrying protein inside red blood cells. When haemoglobin carries oxygen, blood appears brighter red. After releasing oxygen into tissues, it becomes darker red—not blue. The blue appearance comes from how light travels through skin and tissue: different wavelengths are absorbed and scattered before the reflected light reaches your eyes. So the next time you spot blue veins, remember: the blood inside them is still red. The real trick is light, not colour-changing blood.' }}
-          NAFAY_STYLE: ${{ inputs.style || 'bio-glow' }}
-          NAFAY_VOICE: ${{ inputs.voice || 'bf_emma' }}
-          NAFAY_SOURCES: ${{ inputs.sources || 'https://www.ncbi.nlm.nih.gov/books/NBK2263/;https://pdb101.rcsb.org/motm/41;https://www.scienceline.ucsb.edu/getkey.php?key=6854' }}
+          NAFAY_TOPIC: "Your Veins Aren’t Actually Blue"
+          NAFAY_SCRIPT: "Your veins look blue—but your blood is not. So what are you actually seeing? Human blood gets its red colour from haemoglobin, the oxygen-carrying protein inside red blood cells. When haemoglobin carries oxygen, blood appears brighter red. After releasing oxygen into tissues, it becomes darker red—not blue. The blue appearance comes from how light travels through skin and tissue: different wavelengths are absorbed and scattered before the reflected light reaches your eyes. So the next time you spot blue veins, remember: the blood inside them is still red. The real trick is light, not colour-changing blood."
+          NAFAY_STYLE: "bio-glow"
+          NAFAY_VOICE: "bf_emma"
+          NAFAY_SOURCES: "https://www.ncbi.nlm.nih.gov/books/NBK2263/;https://pdb101.rcsb.org/motm/41;https://www.scienceline.ucsb.edu/getkey.php?key=6854"
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-3.8-flash
-          GEMINI_FALLBACK_MODEL: gemini-3.5-flash-lite
+          GEMINI_MODEL: "gemini-3.8-flash"
+          GEMINI_FALLBACK_MODEL: "gemini-3.5-flash-lite"
         run: python cartoonforge/nafay_engine.py
 
       - name: Upload MP4, contact sheet and QA report
