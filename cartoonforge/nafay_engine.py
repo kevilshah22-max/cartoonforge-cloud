@@ -110,7 +110,7 @@ def main():
         (project / "data/cues.json").write_text(json.dumps({
             "duration": narration_duration, "cues": cues
         }, ensure_ascii=False, indent=2))
-        run([sys.executable, str(scripts / "mix.py"), str(project)])
+        run([sys.executable, str(Path(__file__).resolve().parent / "nafay-kit" / "mix.py"), str(project)])
 
         if slug != "bio-glow":
             raise RuntimeError("The cloud animation generator currently supports bio-glow.")
