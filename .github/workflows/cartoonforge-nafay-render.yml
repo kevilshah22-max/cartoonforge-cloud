@@ -29,7 +29,7 @@ on:
         options: [tension, bed, bounce, none]
         default: tension
       sources:
-        description: "At least two reliable source URLs, one per line"
+        description: "At least two reliable source URLs, separated by semicolons or new lines"
         required: true
         type: string
 
