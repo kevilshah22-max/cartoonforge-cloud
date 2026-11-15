@@ -30,7 +30,7 @@ on:
         default: tension
       sources:
         description: "Source URLs, one per line (optional)"
-        required: false
+        required: true
         type: string
 
 permissions:
