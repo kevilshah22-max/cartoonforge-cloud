@@ -13,6 +13,7 @@ Options: --fps 30 · --scale 0.6 (output downscale) · --chrome /path/to/chrome 
 every 0.5 s, time-stamped) · --start 2 --end 10 (render a slice).
 """
 import argparse, base64, hashlib, json, os, random, socket, struct, subprocess, sys, tempfile, time
+from urllib.parse import urlsplit
 from pathlib import Path
 
 SR = 48000
@@ -130,7 +131,9 @@ class Page:
         except json.JSONDecodeError:
             r = subprocess.run(['curl', '-s', f'http://127.0.0.1:{port}/json/new?{url}'], capture_output=True, text=True)
             target = json.loads(r.stdout)
-        self.ws = WS('127.0.0.1', int(port), target['webSocketDebuggerUrl'].split('localhost', 1)[1])
+        ws_target = urlsplit(target['webSocketDebuggerUrl'])
+        ws_path = ws_target.path + (('?' + ws_target.query) if ws_target.query else '')
+        self.ws = WS('127.0.0.1', int(port), ws_path)
         self.id = 0
         self.errors = []
 
