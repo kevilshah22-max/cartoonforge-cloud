@@ -209,7 +209,9 @@ def render_audio(page, vo_file):
         print(f'SFX.render unavailable ({e}); rendering video without the style soundtrack')
         return None
     if not floats or not isinstance(floats, list):
-        return None
+        # The deterministic CartoonForge scene renderer has no generated SFX track;
+        # preserve the narration as the final audio stream instead of silently dropping it.
+        return str(vo_file) if vo_file else None
     import numpy as np
     x = np.array(floats, dtype=np.float32).reshape(-1, 2)
     if vo_file:
