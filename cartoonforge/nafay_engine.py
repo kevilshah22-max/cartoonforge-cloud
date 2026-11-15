@@ -53,6 +53,8 @@ def main():
     words = re.findall(r"\b[\w’'-]+\b", script)
     if not topic or not script or not 70 <= len(words) <= 125:
         raise RuntimeError("Enter a topic and a 70–125 word fact-checked script.")
+    if len(sources) < 2 or any(not s.startswith(("https://", "http://")) for s in sources):
+        raise RuntimeError("Provide at least two reliable source URLs, one per line.")
     if not re.fullmatch(r"[a-z0-9-]+", slug):
         raise RuntimeError("Style must be a Nafay catalogue slug.")
     work = Path(tempfile.mkdtemp(prefix="cartoonforge-nafay-"))
