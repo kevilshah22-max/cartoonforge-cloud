@@ -10,9 +10,14 @@ def run(args):
     subprocess.run(args, check=True)
 
 def fetch(url, path):
-    req = urllib.request.Request(url, headers={"User-Agent": "CartoonForge-Nafay/1.0"})
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/zip,*/*;q=0.8",
+        "Referer": "https://nafay3d.com/"
+    })
     with urllib.request.urlopen(req, timeout=240) as response, open(path, "wb") as out:
         shutil.copyfileobj(response, out)
+        return response.headers.get("Content-Type", "unknown")
 
 def find_kit(root):
     for p in [root, *root.rglob("*")]:
@@ -105,10 +110,14 @@ Style rules: all geometry is Three.js geometry posed from time; vessel cylinder,
 Demo topic: Your blood in 60 seconds."""
         source_url = "https://nafay3d.com/styles/" + slug + "/source.html"
         source_file = project / "reference-source.html"
-        fetch(source_url, source_file)
+        source_type = fetch(source_url, source_file)
         source = source_file.read_text(errors="replace")
         if "<html" not in source.lower() or len(source) < 5000:
-            raise RuntimeError("The selected style reference source was not a complete HTML file.")
+            preview = source[:500].replace("\\n", " ")
+            raise RuntimeError(
+                f"Style source was not complete HTML (content-type={source_type}, bytes={len(source)}). "
+                f"Response preview: {preview}"
+            )
         line_times = (project / "data/lines.json").read_text()
         word_times = (project / "data/words.json").read_text()
         prompt = f"""
