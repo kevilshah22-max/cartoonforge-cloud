@@ -49,7 +49,7 @@ def main():
     slug = os.environ.get("NAFAY_STYLE", "bio-glow").strip()
     voice = os.environ.get("NAFAY_VOICE", "bf_emma").strip()
     music = os.environ.get("NAFAY_MUSIC", "tension").strip()
-    sources = [s.strip() for s in os.environ.get("NAFAY_SOURCES", "").splitlines() if s.strip()]
+    sources = [s.strip() for s in re.split(r"[;\\n]+", os.environ.get("NAFAY_SOURCES", "")) if s.strip()]
     words = re.findall(r"\b[\w’'-]+\b", script)
     if not topic or not script or not 70 <= len(words) <= 125:
         raise RuntimeError("Enter a topic and a 70–125 word fact-checked script.")
