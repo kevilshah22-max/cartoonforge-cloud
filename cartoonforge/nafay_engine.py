@@ -97,109 +97,15 @@ def main():
         run([sys.executable, str(scripts / "words.py"), str(project)])
 
         if slug != "bio-glow":
-            raise RuntimeError("This first cloud build currently supports bio-glow; additional catalogue styles will be enabled after the first verified render.")
-        style = """Bio Glow — 3D science explainer, 9:16 vertical.
-Look: inside the body, glossy red cells drift down a glowing red vessel toward the camera, with fog for depth, warm bloom, and clean white labels on thin leader lines.
-How it explains: the camera travels down the vessel. One hero cell swims close and gets a label; small blue oxygen bubbles fly in and attach; a glowing counter climbs; a white defender cell rolls through before the takeaway.
-Fonts: Space Grotesk 500/700 and JetBrains Mono 500/700.
-Replace: timeline, cells, hero and guest objects in init3(), pose(t), labels and counters in overlay() and scoreSound().
-Keep: makeGL(), lights3(), the inside-out vessel tube, travelling camera and flowing cells in pose(), proj3() labels, leader(), chip(), wordLine(), vignette() and red bloom.
-Text: headlines >=56px, labels >=22px, counter >=80px. Voiceover sync: hero close-up as named; labels draw on the named word; molecules arrive on introduction; counter locks on the last syllable.
-Sound: slow heartbeat under dark filtered pad and soft flowing hiss; labels soft ticks; molecules glassy pings; hero arrival slow whoosh; counters tick only on number changes; new cell low swell; takeaway shimmer. With voiceover keep heartbeat very low, pings/ticks soft, shimmer only on takeaway.
-Style rules: all geometry is Three.js geometry posed from time; vessel cylinder, tori red cells, displaced icosahedron white cells, emissive molecule spheres; no external images/models. Camera moves forward and sways gently; cells flow at different speeds and fade into fog. Palette deep blood red #3a070b, glossy red #c91d2c, salmon #ff8f7d, oxygen blue #7fd3ff, off-white defenders. One hero object per beat; labels name real structures and their real size/job. Hook under 1 second, hero by second 3, one new label every 1–2 seconds, takeaway holds about 2 seconds.
-Demo topic: Your blood in 60 seconds."""
-        source_url = "https://nafay3d.com/styles/" + slug + "/source.html"
-        source_file = project / "reference-source.html"
-        source_type = fetch(source_url, source_file)
-        source = source_file.read_text(errors="replace")
-        if len(source) < 5000 or "<script" not in source.lower() or "window.seek" not in source.lower():
-            preview = source[:500].replace("\\n", " ")
-            raise RuntimeError(
-                f"Style source was not a usable animation document (content-type={source_type}, bytes={len(source)}). "
-                f"Response preview: {preview}"
-            )
-        # Nafay serves this source as an HTML fragment (meta/title/script tags without the outer html/head tags).
-        # Add only missing document wrappers so Chrome can load the reference as a local file.
-        if "<html" not in source.lower():
-            source = "<!doctype html><html><head>" + source
-        if "<body" not in source.lower() and "</head>" in source.lower():
-            source = source.replace("</head>", "</head><body>", 1)
-        if "</body>" not in source.lower():
-            source += "</body>"
-        if "</html>" not in source.lower():
-            source += "</html>"
-        line_times = (project / "data/lines.json").read_text()
-        word_times = (project / "data/words.json").read_text()
-        prompt = f"""
-I want an original animated short in the Nafay 3D Style Library's Bio Glow style. Use the selected style specification below and the complete reference HTML as the ground truth for the look, movement, sound system and player.
-
-TOPIC: {topic}
-NARRATION: {script}
-VOICEOVER LINE TIMINGS: {line_times}
-WORD-LEVEL TIMINGS: {word_times}
-FACT SOURCES: {json.dumps(sources)}
-
-STYLE SPECIFICATION:
-{style}
-
-BUILD DIRECTLY. Return one complete, self-contained HTML document only. Preserve the reference's player, shared CM helpers, SFX system, Three.js setup, fonts, lighting, vessel geometry, camera movement and red bloom. Replace the demo story with the supplied topic. Build accurate red blood cells, oxygen molecules and white defender cells; do not use robot imagery, stock images, external models or external textures. Use the supplied word timings to synchronize hero arrivals, labels, captions, scene changes and sound events. Every frame must be deterministic from time. Keep all important content inside the 9:16 720x1280 safe area and keep text readable on a phone. Use the style's voiceover mix rules and keep narration clearly dominant.
-
-REQUIRED INTERFACES: window.seek(t), numeric window.DURATION, window.scoreSound, window.SFX.render(...), and a canvas. The output must be a complete HTML document beginning with <!doctype html> or <html>. Do not return markdown fences, explanations or placeholders.
-
-COMPLETE, UNMODIFIED REFERENCE SOURCE:
-{source}
-"""
-        key = os.environ.get("GEMINI_API_KEY", "").strip()
-        if not key:
-            raise RuntimeError("GEMINI_API_KEY is missing from repository Actions secrets.")
-        model = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
-        fallback = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite")
-        html = None
-        for chosen, request_timeout in [(model, 150), (fallback, 90)]:
-            if not chosen:
-                continue
-            url = "https://generativelanguage.googleapis.com/v1beta/models/" + chosen + ":generateContent"
-            body = json.dumps({
-                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "temperature": 0.25,
-                    "maxOutputTokens": 16000,
-                    "thinkingConfig": {"thinkingLevel": "low"}
-                }
-            }).encode()
-            req = urllib.request.Request(url, data=body, headers={
-                "Content-Type": "application/json", "x-goog-api-key": key
-            }, method="POST")
-            try:
-                with urllib.request.urlopen(req, timeout=request_timeout) as response:
-                    result = json.loads(response.read().decode())
-                html = result["candidates"][0]["content"]["parts"][0]["text"].strip()
-                break
-            except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, KeyError, IndexError) as exc:
-                print(f"Gemini {chosen} failed; trying the next path: {exc}", flush=True)
-        preview_only = False
-        if not html:
-            print("Gemini did not return a new animation in time; using the original Bio Glow source as a non-publishable visual preview.", flush=True)
-            html = source
-            preview_only = True
-        fence = chr(96) * 3
-        if html.startswith(fence):
-            html = html.split("\n", 1)[1] if "\n" in html else html[len(fence):]
-        if html.rstrip().endswith(fence):
-            html = html.rstrip()[:-len(fence)]
-        valid_document = html.lstrip().lower().startswith(("<!doctype html", "<html"))
-        valid_interfaces = all(required.lower() in html.lower() for required in [
-            "<canvas", "window.seek", "window.DURATION", "window.scoreSound", "window.SFX"
-        ])
-        if not valid_document or not valid_interfaces:
-            print("Gemini output was incomplete; switching to the original Bio Glow source preview.", flush=True)
-            html = source
-            preview_only = True
+            raise RuntimeError("The cloud animation generator currently supports bio-glow.")
         animation = project / "animation.html"
-        animation.write_text(html)
+        source_file = project / "reference-source.html"
+        source_file.write_text("CartoonForge deterministic Bio Glow adaptation; original Nafay source is not used as a story fallback.\\n")
+        run([sys.executable, str(Path(__file__).resolve().parent / "vein_animation.py"), str(project), str(animation)])
+        preview_only = False
         (project / "style-metadata.json").write_text(json.dumps({
-            "slug": slug, "source_url": source_url, "topic": topic, "style_entry": style,
-            "preview_only": preview_only
+            "slug": slug, "topic": topic, "style_entry": "Bio Glow-inspired red-cell science animation",
+            "generator": "CartoonForge deterministic scene generator"
         }, ensure_ascii=False, indent=2))
         chrome = os.environ.get("CHROME", "")
         renderer = [sys.executable, str(Path(__file__).resolve().parent / "nafay-kit" / "render.py")]
