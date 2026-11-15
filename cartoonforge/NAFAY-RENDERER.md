@@ -18,7 +18,7 @@ This is a separate rendering engine inside CartoonForge Cloud. It does not repla
 1. Add GEMINI_API_KEY under Settings → Secrets and variables → Actions.
 2. Open Actions → CartoonForge — Nafay Style Renderer → Run workflow.
 3. Enter a topic, a fact-checked script, and a style slug such as bio-glow, cosmic-scale, clay-diorama, low-poly-atlas, storybook or evidence-board.
-4. Select a Kokoro voice and music bed.
+4. Select a Kokoro voice. Music and sound effects follow the selected style's built-in sound design.
 5. Download the cartoonforge-nafay artifact after the workflow completes.
 
 The renderer uses local Kokoro-82M TTS, Whisper word alignment (with the upstream timing fallback), headless Chrome and FFmpeg. No dedicated GPU is required; 3D rendering uses Chrome's software-rendering fallback on the GitHub runner.
