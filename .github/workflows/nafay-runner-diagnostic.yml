@@ -1,0 +1,19 @@
+name: Nafay runner diagnostic
+
+on:
+  push:
+    branches:
+      - integration/nafay-style-engine
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm Actions runner
+        run: |
+          echo "GitHub Actions runner started."
+          python --version
+          ffmpeg -version | head -n 1
